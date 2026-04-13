@@ -1,0 +1,479 @@
+```html
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Engenharia: Master Cálculo Numérico</title>
+    <!-- Bibliotecas Externas -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        .sidebar-item-active {
+            background-color: #3b82f6;
+            color: white;
+        }
+        canvas {
+            background-color: #f8fafc;
+            border-radius: 0.5rem;
+        }
+        .math-font {
+            font-family: 'Times New Roman', Times, serif;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+<div id="app" class="flex h-screen overflow-hidden">
+    <!-- Sidebar -->
+    <aside class="w-72 bg-slate-900 text-white flex flex-col shadow-xl">
+        <div class="p-6 border-b border-slate-700">
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <i class="fas fa-calculator text-blue-400"></i>
+                Cálculo Numérico
+            </h1>
+            <p class="text-xs text-slate-400 mt-1 uppercase tracking-widest">Engenharia Académica</p>
+        </div>
+        
+        <nav class="flex-1 overflow-y-auto p-4 space-y-2">
+            <button v-for="(mod, index) in modulos" 
+                    :key="index"
+                    @click="setTab(index)"
+                    :class="['w-full text-left p-3 rounded-lg transition-all flex items-center gap-3', 
+                             currentTab === index ? 'sidebar-item-active shadow-lg' : 'hover:bg-slate-800 text-slate-300']">
+                <span class="text-xs font-bold opacity-50">{{ (index + 1).toString().padStart(2, '0') }}</span>
+                <span class="font-medium text-sm">{{ mod.titulo }}</span>
+                <i v-if="currentTab === index" class="fas fa-chevron-right ml-auto text-xs"></i>
+            </button>
+        </nav>
+
+        <div class="p-4 border-t border-slate-700 text-xs text-slate-500 text-center">
+            Desenvolvido para fins didáticos
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-y-auto p-8">
+        <header class="mb-8">
+            <h2 class="text-3xl font-extrabold text-slate-900 tracking-tight">{{ modulos[currentTab].titulo }}</h2>
+            <p class="text-slate-600 mt-2 max-w-2xl">{{ modulos[currentTab].descricao }}</p>
+        </header>
+
+        <!-- Módulo 1: Erros -->
+        <section v-if="currentTab === 0" class="space-y-6 animate-fadeIn">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+                        <i class="fas fa-bullseye text-red-500"></i>
+                        Calculadora de Erros
+                    </h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700">Valor Real ($x$)</label>
+                            <input type="number" v-model="calc.real" class="mt-1 block w-full rounded-md border-slate-300 border p-2 bg-slate-50">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700">Valor Aproximado ($\bar{x}$)</label>
+                            <input type="number" v-model="calc.aprox" class="mt-1 block w-full rounded-md border-slate-300 border p-2 bg-slate-50">
+                        </div>
+                        <div class="p-4 bg-blue-50 rounded-lg space-y-2">
+                            <p class="text-sm">Erro Absoluto: <span class="font-bold text-blue-700">{{ Math.abs(calc.real - calc.aprox).toExponential(4) }}</span></p>
+                            <p class="text-sm">Erro Relativo: <span class="font-bold text-blue-700">{{ (Math.abs(calc.real - calc.aprox) / Math.abs(calc.real || 1)).toExponential(4) }}</span></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h3 class="text-lg font-bold mb-4">Por que isso importa?</h3>
+                    <p class="text-sm text-slate-600 leading-relaxed">
+                        Na engenharia, os computadores usam <strong>Ponto Flutuante</strong>. Isso significa que números como $1/3$ ou $0.1$ não podem ser armazenados com precisão infinita. Pequenos erros de arredondamento podem acumular-se em sistemas complexos, como no cálculo de trajetórias aeroespaciais ou resistência de materiais.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Módulo 2: Zeros -->
+        <section v-if="currentTab === 1" class="space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="space-y-4">
+                        <h3 class="text-lg font-bold">Configuração da Função</h3>
+                        <div>
+                            <label class="block text-sm font-medium">Função $f(x)$</label>
+                            <input type="text" v-model="calc.func" class="mt-1 block w-full border rounded p-2 font-mono text-blue-600" placeholder="x^2 - 2">
+                        </div>
+                        <div class="flex gap-4">
+                            <div class="flex-1">
+                                <label class="block text-sm font-medium">Início ($a$)</label>
+                                <input type="number" v-model="calc.a" class="w-full border rounded p-2">
+                            </div>
+                            <div class="flex-1">
+                                <label class="block text-sm font-medium">Fim ($b$)</label>
+                                <input type="number" v-model="calc.b" class="w-full border rounded p-2">
+                            </div>
+                        </div>
+                        <button @click="metodoBissecao" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition">Calcular Bisseção</button>
+                        
+                        <div v-if="calc.result" class="p-4 bg-green-50 border border-green-200 rounded-lg">
+                            <p class="text-xs uppercase font-bold text-green-600">Resultado:</p>
+                            <p class="text-xl font-mono">x ≈ {{ calc.result }}</p>
+                        </div>
+                    </div>
+                    <div class="lg:col-span-2">
+                        <canvas id="chartZeros"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Módulo 3: Sistemas Lineares -->
+        <section v-if="currentTab === 2" class="space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <h3 class="text-lg font-bold mb-4">Resolução por Gauss-Seidel (Sistema 2x2)</h3>
+                <p class="text-sm text-slate-500 mb-6 italic">Resolva sistemas do tipo $Ax = B$ interativamente.</p>
+                
+                <div class="flex flex-wrap items-center gap-4 text-lg">
+                    <div class="grid grid-cols-2 gap-2 p-4 bg-slate-50 rounded">
+                        <input type="number" v-model="calc.m[0][0]" class="w-16 border p-1 text-center">
+                        <input type="number" v-model="calc.m[0][1]" class="w-16 border p-1 text-center">
+                        <input type="number" v-model="calc.m[1][0]" class="w-16 border p-1 text-center">
+                        <input type="number" v-model="calc.m[1][1]" class="w-16 border p-1 text-center">
+                    </div>
+                    <span>[ x₁ , x₂ ]ᵀ =</span>
+                    <div class="flex flex-col gap-2 p-4 bg-slate-50 rounded">
+                        <input type="number" v-model="calc.v[0]" class="w-16 border p-1 text-center">
+                        <input type="number" v-model="calc.v[1]" class="w-16 border p-1 text-center">
+                    </div>
+                </div>
+                
+                <button @click="resolverSistema" class="mt-6 bg-slate-900 text-white px-6 py-2 rounded hover:bg-slate-800">Iterar 10x</button>
+                
+                <div v-if="calc.resV" class="mt-6 grid grid-cols-2 gap-4">
+                    <div class="p-4 border rounded bg-blue-50">x₁ = {{ calc.resV[0].toFixed(6) }}</div>
+                    <div class="p-4 border rounded bg-blue-50">x₂ = {{ calc.resV[1].toFixed(6) }}</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Módulo 4: Interpolação -->
+        <section v-if="currentTab === 3" class="space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <h3 class="text-lg font-bold mb-2">Interpolação de Lagrange</h3>
+                <p class="text-sm text-slate-500 mb-6">Clique no gráfico abaixo para adicionar pontos experimentais e ver a curva se ajustar.</p>
+                <div class="h-[400px]">
+                    <canvas id="chartInterp"></canvas>
+                </div>
+                <div class="mt-4 flex gap-4">
+                    <button @click="limparPontos" class="text-sm text-red-600 hover:underline">Limpar pontos</button>
+                    <span class="text-sm text-slate-400">Pontos atuais: {{ calc.pontos.length }}</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Módulo 5: Integração -->
+        <section v-if="currentTab === 4" class="space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <h3 class="text-lg font-bold mb-4">Regra de Simpson 1/3</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium">Função Integranda $f(x)$</label>
+                            <input type="text" v-model="calc.funcInt" class="w-full border rounded p-2 font-mono">
+                        </div>
+                        <div class="flex gap-4">
+                            <div class="flex-1">
+                                <label class="block text-sm font-medium">Limite Inf ($a$)</label>
+                                <input type="number" v-model="calc.iA" class="w-full border rounded p-2">
+                            </div>
+                            <div class="flex-1">
+                                <label class="block text-sm font-medium">Limite Sup ($b$)</label>
+                                <input type="number" v-model="calc.iB" class="w-full border rounded p-2">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium">Número de Divisões ($n$ par)</label>
+                            <input type="number" v-model="calc.iN" class="w-full border rounded p-2">
+                        </div>
+                        <button @click="calcularIntegral" class="w-full bg-blue-600 text-white py-2 rounded">Calcular Área</button>
+                        
+                        <div v-if="calc.resInt" class="p-4 bg-yellow-50 border border-yellow-200 rounded text-center">
+                            <p class="text-xs uppercase font-bold text-yellow-700">Área Calculada:</p>
+                            <p class="text-2xl font-bold">≈ {{ calc.resInt }}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-center bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
+                         <div class="text-center p-6">
+                             <p class="text-sm text-slate-500 italic">"A regra de Simpson aproxima a função por parábolas, oferecendo muito mais precisão que a regra dos trapézios para o mesmo número de pontos."</p>
+                         </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Módulo 6: EDOs -->
+        <section v-if="currentTab === 5" class="space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <h3 class="text-lg font-bold mb-4">Simulador de EDO: Runge-Kutta 4ª Ordem</h3>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium">Equação $dy/dx$</label>
+                            <input type="text" v-model="calc.edo" class="w-full border rounded p-2 font-mono text-purple-700">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-sm font-medium">$x_0$</label>
+                                <input type="number" v-model="calc.x0" class="w-full border rounded p-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium">$y_0$</label>
+                                <input type="number" v-model="calc.y0" class="w-full border rounded p-2">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium">Passo ($h$)</label>
+                            <input type="number" v-model="calc.h" step="0.01" class="w-full border rounded p-2">
+                        </div>
+                        <button @click="rodarRK4" class="w-full bg-slate-900 text-white py-2 rounded">Simular Dinâmica</button>
+                    </div>
+                    <div class="lg:col-span-2">
+                        <canvas id="chartEDO"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+</div>
+
+<script>
+    const { createApp, ref, onMounted, nextTick } = Vue;
+
+    createApp({
+        setup() {
+            const currentTab = ref(0);
+            const chart = ref(null);
+            const calc = ref({
+                // Erros
+                real: 1.234567,
+                aprox: 1.234,
+                // Zeros
+                func: 'x^2 - 2', a: 0, b: 2, result: null,
+                // Sistemas
+                m: [[4, -1], [-1, 3]], v: [3, 2], resV: null,
+                // Interpolação
+                pontos: [{x: 0, y: 0}, {x: 1, y: 1}, {x: 2, y: 4}],
+                // Integração
+                funcInt: 'exp(-x^2)', iA: 0, iB: 2, iN: 10, resInt: null,
+                // EDO
+                edo: 'y - x^2 + 1', x0: 0, y0: 0.5, h: 0.1, resultEDO: null
+            });
+
+            const modulos = [
+                { titulo: "Erros e Precisão", descricao: "A base de tudo. Como os números são representados e por que o computador não é perfeito." },
+                { titulo: "Zeros de Funções", descricao: "Encontre as raízes de qualquer equação não-linear $f(x)=0$ usando Bisseção." },
+                { titulo: "Sistemas Lineares", descricao: "Resolva grandes sistemas de equações usando métodos iterativos como Gauss-Seidel." },
+                { titulo: "Interpolação e Ajuste", descricao: "Transforme pontos soltos em uma curva contínua usando o Polinómio de Lagrange." },
+                { titulo: "Integração Numérica", descricao: "Calcule áreas sob curvas complexas usando a Regra de Simpson 1/3." },
+                { titulo: "Equações Diferenciais", descricao: "O auge da engenharia: preveja o comportamento de sistemas usando Runge-Kutta 4." }
+            ];
+
+            const setTab = (idx) => {
+                currentTab.value = idx;
+                calc.value.result = null;
+                // Reiniciar gráficos específicos ao trocar de aba
+                nextTick(() => {
+                    if (idx === 1) plotFunction();
+                    if (idx === 3) initInterpChart();
+                    if (idx === 5) rodarRK4();
+                });
+            };
+
+            // --- MÉTODOS DE CÁLCULO ---
+
+            // Zeros: Bisseção
+            const metodoBissecao = () => {
+                try {
+                    const f = (x) => math.evaluate(calc.value.func, { x });
+                    let a = parseFloat(calc.value.a);
+                    let b = parseFloat(calc.value.b);
+                    let tol = 0.0001;
+                    let m;
+
+                    if (f(a) * f(b) >= 0) {
+                        alert("O intervalo deve conter uma troca de sinal f(a)*f(b) < 0");
+                        return;
+                    }
+
+                    for (let i = 0; i < 50; i++) {
+                        m = (a + b) / 2;
+                        if (Math.abs(f(m)) < tol || (b - a) / 2 < tol) break;
+                        if (f(a) * f(m) < 0) b = m; else a = m;
+                    }
+                    calc.value.result = m.toFixed(6);
+                    plotFunction(m);
+                } catch (e) { alert("Erro na função: " + e.message); }
+            };
+
+            const plotFunction = (raiz = null) => {
+                const ctx = document.getElementById('chartZeros');
+                if (!ctx) return;
+                if (chart.value) chart.value.destroy();
+
+                const f = (x) => math.evaluate(calc.value.func, { x });
+                const labels = [], data = [];
+                for (let x = -5; x <= 5; x += 0.2) {
+                    labels.push(x.toFixed(1));
+                    data.push(f(x));
+                }
+
+                chart.value = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [
+                            { label: 'f(x)', data: data, borderColor: '#3b82f6', tension: 0.3, pointRadius: 0 },
+                            { label: 'Eixo Zero', data: labels.map(() => 0), borderColor: '#cbd5e1', borderDash: [5, 5], pointRadius: 0 }
+                        ]
+                    },
+                    options: { responsive: true, plugins: { legend: { display: false } } }
+                });
+            };
+
+            // Sistemas Lineares: Gauss-Seidel
+            const resolverSistema = () => {
+                let A = calc.value.m;
+                let b = calc.value.v;
+                let x = [0, 0];
+                for (let k = 0; k < 10; k++) {
+                    x[0] = (b[0] - A[0][1] * x[1]) / A[0][0];
+                    x[1] = (b[1] - A[1][0] * x[0]) / A[1][1];
+                }
+                calc.value.resV = x;
+            };
+
+            // Interpolação: Lagrange
+            const initInterpChart = () => {
+                const ctx = document.getElementById('chartInterp');
+                if (!ctx) return;
+                if (chart.value) chart.value.destroy();
+
+                const calcularLagrange = (valX) => {
+                    let result = 0;
+                    const pts = calc.value.pontos;
+                    for (let i = 0; i < pts.length; i++) {
+                        let termo = pts[i].y;
+                        for (let j = 0; j < pts.length; j++) {
+                            if (i !== j) termo *= (valX - pts[j].x) / (pts[i].x - pts[j].x);
+                        }
+                        result += termo;
+                    }
+                    return result;
+                };
+
+                const labels = [], dataCurve = [];
+                for (let x = -2; x <= 10; x += 0.2) {
+                    labels.push(x.toFixed(1));
+                    dataCurve.push(calcularLagrange(x));
+                }
+
+                chart.value = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [
+                            { label: 'Polinómio', data: dataCurve, borderColor: '#10b981', pointRadius: 0, tension: 0.4 },
+                            { label: 'Pontos', data: labels.map(l => {
+                                const p = calc.value.pontos.find(pt => pt.x.toFixed(1) === l);
+                                return p ? p.y : null;
+                            }), backgroundColor: '#ef4444', type: 'scatter', pointRadius: 6 }
+                        ]
+                    },
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false,
+                        onClick: (e) => {
+                            const canvasPosition = Chart.helpers.getRelativePosition(e, chart.value);
+                            const dataX = chart.value.scales.x.getValueForPixel(canvasPosition.x);
+                            const dataY = chart.value.scales.y.getValueForPixel(canvasPosition.y);
+                            calc.value.pontos.push({ x: parseFloat(labels[dataX]), y: dataY });
+                            initInterpChart();
+                        }
+                    }
+                });
+            };
+
+            const limparPontos = () => {
+                calc.value.pontos = [];
+                initInterpChart();
+            };
+
+            // Integração: Simpson 1/3
+            const calcularIntegral = () => {
+                const f = (x) => math.evaluate(calc.value.funcInt, { x });
+                const a = calc.value.iA;
+                const b = calc.value.iB;
+                const n = calc.value.iN % 2 === 0 ? calc.value.iN : calc.value.iN + 1;
+                const h = (b - a) / n;
+                
+                let soma = f(a) + f(b);
+                for (let i = 1; i < n; i++) {
+                    const x = a + i * h;
+                    soma += (i % 2 === 0 ? 2 : 4) * f(x);
+                }
+                calc.value.resInt = ((h / 3) * soma).toFixed(6);
+            };
+
+            // EDO: RK4
+            const rodarRK4 = () => {
+                const ctx = document.getElementById('chartEDO');
+                if (!ctx) return;
+                if (chart.value) chart.value.destroy();
+
+                const f = (x, y) => math.evaluate(calc.value.edo, { x, y });
+                let x = calc.value.x0;
+                let y = calc.value.y0;
+                const h = calc.value.h;
+                
+                const ptsX = [x.toFixed(2)], ptsY = [y];
+                
+                for (let i = 0; i < 20; i++) {
+                    let k1 = h * f(x, y);
+                    let k2 = h * f(x + h/2, y + k1/2);
+                    let k3 = h * f(x + h/2, y + k2/2);
+                    let k4 = h * f(x + h, y + k3);
+                    y += (k1 + 2*k2 + 2*k3 + k4) / 6;
+                    x += h;
+                    ptsX.push(x.toFixed(2));
+                    ptsY.push(y);
+                }
+
+                chart.value = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: ptsX,
+                        datasets: [{ label: 'y(x)', data: ptsY, borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', fill: true, tension: 0.2 }]
+                    },
+                    options: { responsive: true }
+                });
+            };
+
+            onMounted(() => setTab(0));
+
+            return {
+                currentTab, modulos, calc, setTab,
+                metodoBissecao, resolverSistema, initInterpChart, limparPontos,
+                calcularIntegral, rodarRK4
+            };
+        }
+    }).mount('#app');
+</script>
+
+</body>
+</html>
+
+```
